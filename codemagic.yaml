@@ -1,0 +1,93 @@
+workflows:
+  ios-capacitor:
+    name: RaveSync iOS Build
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        distribution_type: development   # cambia a 'app_store' si quieres subir al App Store
+        bundle_identifier: com.tadeo.ravesync
+      vars:
+        BUNDLE_ID: "com.tadeo.ravesync"
+        APP_STORE_APPLE_ID: "1234567890"  # solo necesario para App Store, puedes dejarlo
+      node: 20.15.0
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm install
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd ios/App
+          pod install
+
+      - name: Set up code signing
+        script: xcode-project use-profiles
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App" \
+            --config "Debug"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      email:
+        recipients:
+          - tadeo@example.com   # ← pon tu correo aquí
+        notify:
+          success: true
+          failure: true
+
+  android-capacitor:
+    name: RaveSync Android Build
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      android_signing:
+        - keystore_reference   # configura en Codemagic UI
+      vars:
+        PACKAGE_NAME: "com.tadeo.ravesync"
+      node: 20.15.0
+      java: 17
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm install
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Sync Capacitor Android
+        script: npx cap sync android
+
+      - name: Build Android APK
+        script: |
+          cd android
+          ./gradlew assembleDebug
+
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - tadeo@example.com   # ← pon tu correo aquí
+        notify:
+          success: true
+          failure: true
