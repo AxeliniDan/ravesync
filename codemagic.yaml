@@ -1,23 +1,140 @@
 workflows:
-  ios-capacitor:
+  # ═══════════════════════════════════════════════════════════════════════
+  # ANDROID — Genera APK debug sin necesidad de keystore
+  # ═══════════════════════════════════════════════════════════════════════
+  android-debug:
+    name: RaveSync Android Debug APK
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      vars:
+        PACKAGE_NAME: "com.tadeo.ravesync"
+      node: 20.15.0
+      java: 17
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Sync Capacitor Android
+        script: npx cap sync android
+
+      - name: Build Android Debug APK
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - tadeo@example.com  # ← Cambia por tu email real
+        notify:
+          success: true
+          failure: true
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # ANDROID RELEASE — Genera APK/AAB firmado (necesita keystore en Codemagic)
+  # ═══════════════════════════════════════════════════════════════════════
+  android-release:
+    name: RaveSync Android Release
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      android_signing:
+        - ravesync_keystore  # Configura esto en Codemagic UI > Code signing
+      vars:
+        PACKAGE_NAME: "com.tadeo.ravesync"
+      node: 20.15.0
+      java: 17
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Sync Capacitor Android
+        script: npx cap sync android
+
+      - name: Set up keystore
+        script: |
+          # Codemagic auto-sets CM_KEYSTORE, CM_KEY_ALIAS, etc.
+          echo "storeFile=$CM_KEYSTORE" >> android/key.properties
+          echo "storePassword=$CM_KEYSTORE_PASSWORD" >> android/key.properties
+          echo "keyAlias=$CM_KEY_ALIAS" >> android/key.properties
+          echo "keyPassword=$CM_KEY_PASSWORD" >> android/key.properties
+
+      - name: Build Android Release APK
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
+
+    publishing:
+      email:
+        recipients:
+          - tadeo@example.com
+        notify:
+          success: true
+          failure: true
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # iOS — Necesita Apple Developer Account + perfiles en Codemagic
+  # ═══════════════════════════════════════════════════════════════════════
+  ios-release:
     name: RaveSync iOS Build
     max_build_duration: 120
     instance_type: mac_mini_m2
 
     environment:
       ios_signing:
-        distribution_type: development   # cambia a 'app_store' si quieres subir al App Store
+        distribution_type: development
         bundle_identifier: com.tadeo.ravesync
       vars:
         BUNDLE_ID: "com.tadeo.ravesync"
-        APP_STORE_APPLE_ID: "1234567890"  # solo necesario para App Store, puedes dejarlo
       node: 20.15.0
       xcode: latest
       cocoapods: default
 
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+
     scripts:
       - name: Install npm dependencies
-        script: npm install
+        script: npm ci
 
       - name: Build web app
         script: npm run build
@@ -48,46 +165,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - tadeo@example.com   # ← pon tu correo aquí
-        notify:
-          success: true
-          failure: true
-
-  android-capacitor:
-    name: RaveSync Android Build
-    max_build_duration: 60
-    instance_type: linux_x2
-
-    environment:
-      android_signing:
-        - keystore_reference   # configura en Codemagic UI
-      vars:
-        PACKAGE_NAME: "com.tadeo.ravesync"
-      node: 20.15.0
-      java: 17
-
-    scripts:
-      - name: Install npm dependencies
-        script: npm install
-
-      - name: Build web app
-        script: npm run build
-
-      - name: Sync Capacitor Android
-        script: npx cap sync android
-
-      - name: Build Android APK
-        script: |
-          cd android
-          ./gradlew assembleDebug
-
-    artifacts:
-      - android/app/build/outputs/**/*.apk
-
-    publishing:
-      email:
-        recipients:
-          - tadeo@example.com   # ← pon tu correo aquí
+          - tadeo@example.com
         notify:
           success: true
           failure: true
