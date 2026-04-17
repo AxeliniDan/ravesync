@@ -238,11 +238,13 @@ const MediaBrowser: React.FC<MediaBrowserProps> = ({ onSelectVideo, onClose }) =
     );
   };
 
-  // ── Results grid ─────────────────────────────────────────────────────
   const ResultsGrid = ({ items, onSelect }: { items: SearchResult[]; onSelect: (id: string) => void }) => (
     <div style={{
-      flex: 1, overflowY: 'auto', padding: '20px',
-      display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px'
+      flex: 1, overflowY: 'auto', padding: '16px',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+      gap: '16px',
+      alignContent: 'start',
     }}>
       {items.map((item, idx) => (
         <VideoCard key={idx} item={item} onClick={() => onSelect(item.videoId)} />
@@ -269,6 +271,7 @@ const MediaBrowser: React.FC<MediaBrowserProps> = ({ onSelectVideo, onClose }) =
       )}
     </div>
   );
+
 
   return (
     <div className="glass-panel animate-fade-in media-browser-overlay" style={{

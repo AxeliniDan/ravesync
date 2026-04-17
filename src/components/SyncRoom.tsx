@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactPlayer from 'react-player';
 import Peer, { type DataConnection, type MediaConnection } from 'peerjs';
-import { Send, LogOut, Copy, CheckCircle2, PlaySquare, Mic, MicOff, MonitorPlay, MessageCircle, Search, Video } from 'lucide-react';
+import { Send, LogOut, Copy, CheckCircle2, PlaySquare, Mic, MicOff, MonitorPlay, Search } from 'lucide-react';
 import MediaBrowser from './MediaBrowser';
 
 interface SyncRoomProps {
@@ -24,15 +24,11 @@ interface SyncData {
   payload?: any;
 }
 
-// ── Mobile tab type ────────────────────────────────────────────────────────
-type MobileTab = 'player' | 'chat' | 'search';
-
 const SyncRoom: React.FC<SyncRoomProps> = ({ roomId, isHost, onLeave }) => {
   const [videoUrl, setVideoUrl] = useState('https://www.youtube.com/watch?v=aqz-KE-bpKQ');
   const [inputUrl, setInputUrl] = useState('');
   const [playing, setPlaying] = useState(false);
   const [showMediaBrowser, setShowMediaBrowser] = useState(false);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('player');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -40,7 +36,6 @@ const SyncRoom: React.FC<SyncRoomProps> = ({ roomId, isHost, onLeave }) => {
   const [copied, setCopied] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string>('Conectando...');
 
-  // Audio state
   const [isMuted, setIsMuted] = useState(true);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
@@ -50,10 +45,8 @@ const SyncRoom: React.FC<SyncRoomProps> = ({ roomId, isHost, onLeave }) => {
   const connectionRef = useRef<DataConnection | null>(null);
   const connectionsRef = useRef<DataConnection[]>([]);
   const chatBottomRef = useRef<HTMLDivElement>(null);
-
   const isSeeking = useRef(false);
 
-  // Auto-scroll chat
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -142,23 +135,15 @@ const SyncRoom: React.FC<SyncRoomProps> = ({ roomId, isHost, onLeave }) => {
     conn.on('data', (data: any) => {
       const syncData = data as SyncData;
       switch (syncData.type) {
-        case 'CHAT':
-          setMessages(prev => [...prev, syncData.payload]);
-          break;
-        case 'PLAY':
-          setPlaying(true);
-          break;
-        case 'PAUSE':
-          setPlaying(false);
-          break;
+        case 'CHAT': setMessages(prev => [...prev, syncData.payload]); break;
+        case 'PLAY': setPlaying(true); break;
+        case 'PAUSE': setPlaying(false); break;
         case 'SEEK':
           isSeeking.current = true;
           if (playerRef.current) (playerRef.current as any).currentTime = syncData.payload;
           setTimeout(() => { isSeeking.current = false; }, 500);
           break;
-        case 'URL':
-          setVideoUrl(syncData.payload);
-          break;
+        case 'URL': setVideoUrl(syncData.payload); break;
       }
     });
 
@@ -200,7 +185,6 @@ const SyncRoom: React.FC<SyncRoomProps> = ({ roomId, isHost, onLeave }) => {
     setVideoUrl(url);
     setPlaying(true);
     setShowMediaBrowser(false);
-    setMobileTab('player');
     if (isHost) {
       broadcast({ type: 'URL', payload: url });
       broadcast({ type: 'PLAY' });
@@ -234,208 +218,220 @@ const SyncRoom: React.FC<SyncRoomProps> = ({ roomId, isHost, onLeave }) => {
     }
   };
 
-  // ── Shared Chat component ─────────────────────────────────────────────────
-  const ChatPanel = () => (
-    <>
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-glass)', flexShrink: 0 }}>
-        <h3 style={{ fontWeight: 600 }}>Chat en Vivo</h3>
-      </div>
+  return (
+    <div className="animate-fade-in" style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100dvh',
+      overflow: 'hidden',
+      background: 'var(--bg-primary)',
+    }}>
+      <audio ref={remoteAudioRef} autoPlay />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {messages.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '40px', fontSize: '0.9rem' }}>
-            Aún no hay mensajes. ¡Di hola!
+      {/* ── TOP HEADER BAR ── */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 16px',
+        borderBottom: '1px solid var(--border-glass)',
+        flexShrink: 0,
+        background: 'rgba(255,255,255,0.02)',
+      }}>
+        {/* Room info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="text-gradient">Sala: {roomId}</span>
+              {isHost && (
+                <button onClick={copyRoomCode} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '2px' }}>
+                  {copied ? <CheckCircle2 size={15} color="#10b981" /> : <Copy size={15} />}
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: connectionStatus.includes('Error') ? '#ef4444' : '#10b981' }} />
+              {connectionStatus}
+            </div>
           </div>
-        ) : (
-          messages.map(msg => {
-            const isMe = (msg.sender === 'Anfitrión' && isHost) || (msg.sender === 'Invitado' && !isHost);
-            return (
-              <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>{msg.sender}</span>
-                <div style={{
-                  background: isMe ? 'var(--accent-primary)' : 'var(--bg-glass)',
-                  padding: '10px 14px', borderRadius: '16px',
-                  borderBottomRightRadius: isMe ? '4px' : '16px',
-                  borderBottomLeftRadius: !isMe ? '4px' : '16px',
-                  fontSize: '0.95rem', wordBreak: 'break-word', maxWidth: '80%'
-                }}>
-                  {msg.text}
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={chatBottomRef} />
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {isHost && (
+            <button
+              onClick={() => setShowMediaBrowser(true)}
+              className="btn"
+              style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '8px 14px', fontSize: '0.85rem' }}
+            >
+              <MonitorPlay size={16} />
+              <span style={{ display: window.innerWidth < 480 ? 'none' : 'inline' }}>YouTube</span>
+            </button>
+          )}
+          <button
+            onClick={toggleMute}
+            className="btn"
+            style={{
+              background: isMuted ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+              color: isMuted ? '#ef4444' : '#10b981',
+              borderColor: isMuted ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)',
+              padding: '8px 12px'
+            }}
+          >
+            {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+          <button onClick={onLeave} className="btn" style={{ background: 'rgba(255,255,255,0.05)', padding: '8px 12px' }}>
+            <LogOut size={16} />
+          </button>
+        </div>
       </div>
 
-      <form onSubmit={sendChat} style={{ padding: '12px', borderTop: '1px solid var(--border-glass)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
+      {/* ── VIDEO PLAYER ── */}
+      <div style={{
+        background: '#000',
+        flexShrink: 0,
+        width: '100%',
+        aspectRatio: '16 / 9',
+        maxHeight: '55vh',
+        position: 'relative',
+      }}>
+        <ReactPlayer
+          ref={playerRef}
+          src={videoUrl}
+          width="100%"
+          height="100%"
+          playing={playing}
+          controls={true}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onSeeked={handleSeek}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        />
+      </div>
+
+      {/* ── URL INPUT (host only) ── */}
+      {isHost && (
+        <div style={{
+          padding: '8px 12px',
+          borderBottom: '1px solid var(--border-glass)',
+          flexShrink: 0,
+          background: 'rgba(255,255,255,0.015)',
+        }}>
+          <form onSubmit={handleUrlChange} style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <PlaySquare size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                value={inputUrl}
+                onChange={e => setInputUrl(e.target.value)}
+                placeholder="Pega un link de YouTube..."
+                className="input-glass"
+                style={{ paddingLeft: '38px', padding: '9px 12px 9px 36px', fontSize: '0.85rem' }}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={!inputUrl.trim()} style={{ flexShrink: 0, fontSize: '0.85rem', padding: '8px 14px' }}>
+              <Search size={15} /> Poner
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── CHAT ── */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minHeight: 0,
+      }}>
+        {/* Chat header */}
+        <div style={{
+          padding: '8px 16px',
+          borderBottom: '1px solid var(--border-glass)',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            💬 Chat en vivo
+          </span>
+          {messages.length > 0 && (
+            <span style={{
+              background: 'var(--accent-primary)', color: 'white',
+              borderRadius: '99px', fontSize: '0.65rem', fontWeight: 700,
+              padding: '1px 7px',
+            }}>{messages.length}</span>
+          )}
+        </div>
+
+        {/* Messages */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+        }}>
+          {messages.length === 0 ? (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '24px', fontSize: '0.85rem' }}>
+              Sin mensajes aún. ¡Di hola! 👋
+            </div>
+          ) : (
+            messages.map(msg => {
+              const isMe = (msg.sender === 'Anfitrión' && isHost) || (msg.sender === 'Invitado' && !isHost);
+              return (
+                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '3px' }}>{msg.sender}</span>
+                  <div style={{
+                    background: isMe ? 'var(--accent-primary)' : 'var(--bg-glass)',
+                    padding: '9px 13px',
+                    borderRadius: '16px',
+                    borderBottomRightRadius: isMe ? '4px' : '16px',
+                    borderBottomLeftRadius: !isMe ? '4px' : '16px',
+                    fontSize: '0.9rem',
+                    wordBreak: 'break-word',
+                    maxWidth: '80%',
+                  }}>
+                    {msg.text}
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* Message input */}
+        <form onSubmit={sendChat} style={{
+          padding: '10px 12px',
+          borderTop: '1px solid var(--border-glass)',
+          flexShrink: 0,
+          display: 'flex',
+          gap: '8px',
+          background: 'rgba(255,255,255,0.02)',
+        }}>
           <input
             type="text"
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
             placeholder="Escribe un mensaje..."
             className="input-glass"
-            style={{ padding: '12px 16px' }}
+            style={{ flex: 1, fontSize: '0.9rem', padding: '10px 14px' }}
           />
-          <button type="submit" className="btn btn-icon" style={{ background: 'var(--bg-glass)', flexShrink: 0 }} disabled={!chatInput.trim()}>
-            <Send size={18} color="var(--accent-primary)" />
-          </button>
-        </div>
-      </form>
-    </>
-  );
-
-  return (
-    <div className="animate-fade-in room-container" style={{ display: 'flex', height: '100dvh', overflow: 'hidden' }}>
-      <audio ref={remoteAudioRef} autoPlay />
-
-      {/* ── Video + Controls area ── */}
-      <div className="video-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', minWidth: 0, overflow: 'hidden' }}>
-
-        {/* Header */}
-        <div className="glass-panel room-header" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <div>
-            <h2 className="room-header-title" style={{ fontSize: '1.15rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="text-gradient">Sala: {roomId}</span>
-              {isHost && (
-                <button onClick={copyRoomCode} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
-                  {copied ? <CheckCircle2 size={16} color="#10b981" /> : <Copy size={16} />}
-                </button>
-              )}
-            </h2>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: connectionStatus.includes('Error') ? '#ef4444' : '#10b981', flexShrink: 0 }} />
-              {connectionStatus}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={toggleMute}
-              className="btn"
-              style={{ background: isMuted ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: isMuted ? '#ef4444' : '#10b981', borderColor: isMuted ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', padding: '10px 16px' }}
-            >
-              {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
-              <span className="header-btn-text">{isMuted ? 'Silenciado' : 'Activo'}</span>
-            </button>
-
-            <button onClick={onLeave} className="btn" style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 16px' }}>
-              <LogOut size={18} />
-              <span className="header-btn-text">Salir</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Video Player */}
-        <div className="glass-panel" style={{ flex: 1, borderRadius: '16px', overflow: 'hidden', position: 'relative', background: '#000', minHeight: 0 }}>
-          <ReactPlayer
-            ref={playerRef}
-            src={videoUrl}
-            width="100%"
-            height="100%"
-            playing={playing}
-            controls={true}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onSeeked={handleSeek}
-          />
-        </div>
-
-        {/* Video Controls — Host only */}
-        {isHost && (
-          <div className="glass-panel video-controls" style={{ padding: '12px', display: 'flex', gap: '8px', flexDirection: 'column', flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <button onClick={() => { setShowMediaBrowser(true); setMobileTab('search'); }} className="btn" style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 16px' }}>
-                <MonitorPlay size={18} />
-                <span className="search-btn-text">Buscar en YouTube</span>
-              </button>
-              <span className="search-btn-text video-controls-hint" style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                Busca y selecciona un video sin salir de la app
-              </span>
-            </div>
-
-            <form onSubmit={handleUrlChange} style={{ display: 'flex', gap: '8px' }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <PlaySquare size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="text"
-                  value={inputUrl}
-                  onChange={e => setInputUrl(e.target.value)}
-                  placeholder="Pega el enlace de YouTube..."
-                  className="input-glass"
-                  style={{ paddingLeft: '44px' }}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" disabled={!inputUrl.trim()} style={{ flexShrink: 0 }}>
-                Reproducir
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* ── Desktop Chat Sidebar ── */}
-      <div className="glass-panel desktop-chat" style={{ width: '320px', borderLeft: '1px solid var(--border-glass)', borderRadius: 0, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <ChatPanel />
-      </div>
-
-      {/* ── Mobile Chat Panel (full screen overlay) ── */}
-      {mobileTab === 'chat' && (
-        <div className="mobile-chat-panel glass-panel" style={{ borderRadius: 0 }}>
-          <ChatPanel />
-        </div>
-      )}
-
-      {/* ── Mobile Bottom Navigation ── */}
-      <nav className="mobile-nav">
-        <button
-          className={`mobile-nav-btn ${mobileTab === 'player' ? 'active' : ''}`}
-          onClick={() => setMobileTab('player')}
-        >
-          <Video size={22} />
-          Video
-        </button>
-
-        <button
-          className={`mobile-nav-btn ${mobileTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setMobileTab('chat')}
-          style={{ position: 'relative' }}
-        >
-          <MessageCircle size={22} />
-          Chat
-          {messages.length > 0 && mobileTab !== 'chat' && (
-            <span style={{
-              position: 'absolute', top: '6px', right: 'calc(50% - 18px)',
-              background: '#ef4444', color: 'white', borderRadius: '99px',
-              fontSize: '0.55rem', fontWeight: 700, padding: '1px 5px', minWidth: '16px', textAlign: 'center'
-            }}>
-              {messages.length}
-            </span>
-          )}
-        </button>
-
-        {isHost && (
           <button
-            className="mobile-nav-btn accent"
-            onClick={() => setShowMediaBrowser(true)}
+            type="submit"
+            className="btn btn-icon"
+            style={{ background: 'var(--accent-primary)', flexShrink: 0, padding: '10px 14px' }}
+            disabled={!chatInput.trim()}
           >
-            <Search size={22} />
-            Buscar
+            <Send size={17} color="white" />
           </button>
-        )}
+        </form>
+      </div>
 
-        <button
-          className="mobile-nav-btn"
-          onClick={onLeave}
-          style={{ color: '#ef4444' }}
-        >
-          <LogOut size={22} />
-          Salir
-        </button>
-      </nav>
-
-      {/* ── Media Browser Modal ── */}
+      {/* ── MEDIA BROWSER MODAL ── */}
       {showMediaBrowser && (
         <MediaBrowser
           onSelectVideo={handleMediaSelect}
