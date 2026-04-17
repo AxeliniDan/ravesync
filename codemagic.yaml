@@ -11,7 +11,7 @@ workflows:
       vars:
         PACKAGE_NAME: "com.tadeo.ravesync"
       node: 22.12.0
-      java: 17
+      java: 21
 
     triggering:
       events:
@@ -64,7 +64,7 @@ workflows:
       vars:
         PACKAGE_NAME: "com.tadeo.ravesync"
       node: 22.12.0
-      java: 17
+      java: 21
 
     triggering:
       events:
