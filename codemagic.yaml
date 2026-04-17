@@ -23,7 +23,7 @@ workflows:
 
     scripts:
       - name: Install npm dependencies
-        script: npm ci
+        script: npm install
 
       - name: Build web app
         script: npm run build
@@ -73,7 +73,7 @@ workflows:
 
     scripts:
       - name: Install npm dependencies
-        script: npm ci
+        script: npm install
 
       - name: Build web app
         script: npm run build
@@ -134,7 +134,7 @@ workflows:
 
     scripts:
       - name: Install npm dependencies
-        script: npm ci
+        script: npm install
 
       - name: Build web app
         script: npm run build
