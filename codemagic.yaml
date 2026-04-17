@@ -10,7 +10,7 @@ workflows:
     environment:
       vars:
         PACKAGE_NAME: "com.tadeo.ravesync"
-      node: 20.15.0
+      node: 22.12.0
       java: 17
 
     triggering:
@@ -23,7 +23,9 @@ workflows:
 
     scripts:
       - name: Install npm dependencies
-        script: npm install
+        script: |
+          rm -f package-lock.json
+          npm install
 
       - name: Build web app
         script: npm run build
@@ -61,7 +63,7 @@ workflows:
         - ravesync_keystore  # Configura esto en Codemagic UI > Code signing
       vars:
         PACKAGE_NAME: "com.tadeo.ravesync"
-      node: 20.15.0
+      node: 22.12.0
       java: 17
 
     triggering:
@@ -73,7 +75,9 @@ workflows:
 
     scripts:
       - name: Install npm dependencies
-        script: npm install
+        script: |
+          rm -f package-lock.json
+          npm install
 
       - name: Build web app
         script: npm run build
@@ -121,7 +125,7 @@ workflows:
         bundle_identifier: com.tadeo.ravesync
       vars:
         BUNDLE_ID: "com.tadeo.ravesync"
-      node: 20.15.0
+      node: 22.12.0
       xcode: latest
       cocoapods: default
 
@@ -134,7 +138,9 @@ workflows:
 
     scripts:
       - name: Install npm dependencies
-        script: npm install
+        script: |
+          rm -f package-lock.json
+          npm install
 
       - name: Build web app
         script: npm run build
